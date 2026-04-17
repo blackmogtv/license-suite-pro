@@ -3,31 +3,44 @@ import { Header } from "@/components/layout/Header";
 import { Activity as ActivityIcon, RefreshCw } from "lucide-react";
 import { callManageKeys } from "@/lib/supabase";
 import { useProducts } from "@/contexts/ProductContext";
-import { type KeyEvent } from "@/lib/types";
+import { type KeyEvent, normalizeKeyEvent } from "@/lib/types";
 import { Button } from "@/components/ui/primitives";
-import { formatDate } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 
 interface ActivityRow extends KeyEvent {
   product_name?: string;
 }
 
-const EVENT_ACCENT: Record<string, string> = {
-  used: "text-status-used",
-  validated: "text-status-used",
-  created: "text-status-unused",
-  banned: "text-status-banned",
-  unbanned: "text-status-used",
-  reset_hwid: "text-status-expired",
-  deleted: "text-destructive",
-};
+type Filter = "all" | "valid" | "invalid";
+
+const VALID_EVENTS = new Set([
+  "valid_bound",
+  "valid_existing_binding",
+  "valid_rebound",
+  "valid_unbound",
+]);
+
+const INVALID_EVENTS = new Set([
+  "invalid_key",
+  "unknown_product",
+  "inactive_product",
+  "hwid_mismatch",
+  "expired",
+  "banned",
+]);
+
+function classify(t?: string): "valid" | "invalid" | "other" {
+  if (!t) return "other";
+  const k = t.toLowerCase();
+  if (VALID_EVENTS.has(k) || k.startsWith("valid_")) return "valid";
+  if (INVALID_EVENTS.has(k)) return "invalid";
+  return "other";
+}
 
 function eventAccent(t?: string) {
-  if (!t) return "text-foreground";
-  const k = t.toLowerCase();
-  for (const [needle, cls] of Object.entries(EVENT_ACCENT)) {
-    if (k.includes(needle)) return cls;
-  }
+  const c = classify(t);
+  if (c === "valid") return "text-status-used";
+  if (c === "invalid") return "text-status-banned";
   return "text-foreground";
 }
 
@@ -36,6 +49,7 @@ export default function Activity() {
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
 
   const productMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -47,29 +61,16 @@ export default function Activity() {
     setLoading(true);
     setError(null);
     try {
-      // Backend has no global events action; derive recent activity from
-      // each product's keys (last_used_at / first_used_at timestamps).
       const perProduct = await Promise.all(
         products.map(async (p) => {
           try {
-            const data = await callManageKeys<any>("list_keys", {
+            const data = await callManageKeys<any>("list_events", {
               client_id: p.client_id,
-              limit: 50,
+              limit: 100,
               offset: 0,
             });
-            const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.keys ?? []);
-            return raw
-              .filter((k) => k.last_used_at || k.first_used_at || k.used_at)
-              .map((k) => ({
-                id: `${p.client_id}:${k.license_key}`,
-                created_at: k.last_used_at ?? k.first_used_at ?? k.used_at,
-                event_type: "key_used",
-                actor: k.user_label ?? k.used_by ?? null,
-                license_key: k.license_key,
-                client_id: p.client_id,
-                hwid: k.hwid ?? null,
-                details: { duration_days: k.duration_days, status: k.status },
-              }) as ActivityRow);
+            const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.events ?? []);
+            return raw.map((e) => normalizeKeyEvent({ ...e, client_id: e.client_id ?? p.client_id }) as ActivityRow);
           } catch {
             return [] as ActivityRow[];
           }
@@ -101,6 +102,36 @@ export default function Activity() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products.length]);
 
+  const filteredRows = useMemo(() => {
+    if (filter === "all") return rows;
+    return rows.filter((r) => classify(r.event_type) === filter);
+  }, [rows, filter]);
+
+  const counts = useMemo(() => {
+    let valid = 0, invalid = 0;
+    for (const r of rows) {
+      const c = classify(r.event_type);
+      if (c === "valid") valid++;
+      else if (c === "invalid") invalid++;
+    }
+    return { valid, invalid, all: rows.length };
+  }, [rows]);
+
+  const FilterBtn = ({ value, label, count }: { value: Filter; label: string; count: number }) => (
+    <button
+      type="button"
+      onClick={() => setFilter(value)}
+      className={cn(
+        "px-3 py-1 rounded-sm border text-[10px] font-mono font-bold tracking-wider transition-colors",
+        filter === value
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-surface text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40",
+      )}
+    >
+      {label} ({count})
+    </button>
+  );
+
   return (
     <>
       <Header
@@ -112,13 +143,20 @@ export default function Activity() {
         }
       />
       <div className="flex-1 p-8 radar-grid overflow-y-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            ACTIVITY_STREAM
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1 font-mono">
-            Recent key usage across all products // {rows.length} event(s)
-          </p>
+        <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              ACTIVITY_STREAM
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1 font-mono">
+              Recent key validation events // {filteredRows.length} of {rows.length}
+            </p>
+          </div>
+          <div className="flex gap-1">
+            <FilterBtn value="all" label="ALL" count={counts.all} />
+            <FilterBtn value="valid" label="VALID" count={counts.valid} />
+            <FilterBtn value="invalid" label="INVALID" count={counts.invalid} />
+          </div>
         </div>
 
         {error && (
@@ -133,17 +171,17 @@ export default function Activity() {
           </div>
         )}
 
-        {!loading && rows.length === 0 && !error && (
+        {!loading && filteredRows.length === 0 && !error && (
           <div className="bg-surface border border-border rounded-sm p-12 text-center">
             <ActivityIcon className="size-10 mx-auto text-muted-foreground mb-4" />
-            <p className="font-mono text-sm text-muted-foreground">NO_RECENT_ACTIVITY</p>
+            <p className="font-mono text-sm text-muted-foreground">NO_EVENTS</p>
             <p className="text-xs text-muted-foreground/60 mt-2">
-              Once keys are used, validated, or banned, events will appear here.
+              Validation events will appear here as keys are used.
             </p>
           </div>
         )}
 
-        {rows.length > 0 && (
+        {filteredRows.length > 0 && (
           <div className="border border-border rounded-sm overflow-hidden bg-surface">
             <table className="w-full font-mono text-xs">
               <thead>
@@ -157,7 +195,7 @@ export default function Activity() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {rows.map((r, i) => (
+                {filteredRows.map((r, i) => (
                   <tr key={r.id ?? i} className="hover:bg-accent/40">
                     <td className="p-3 text-muted-foreground whitespace-nowrap">
                       {formatDate(r.created_at)}
