@@ -37,6 +37,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         id: p.id,
         client_id: p.client_id,
         name: p.display_name ?? p.name ?? p.client_id,
+        description: p.description ?? "",
         is_active: !!p.is_active,
         created_at: p.created_at,
       }));
