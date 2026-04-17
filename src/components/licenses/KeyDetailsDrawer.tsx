@@ -107,8 +107,8 @@ export function KeyDetailsDrawer({
                   {events.map((e, i) => (
                     <tr key={e.id ?? i} className="hover:bg-accent/50">
                       <td className="p-2 text-muted-foreground">{formatDate(e.created_at)}</td>
-                      <td className="p-2 text-foreground">{e.event_type ?? "—"}</td>
-                      <td className="p-2 text-muted-foreground">{e.actor ?? "—"}</td>
+                      <td className="p-2 text-foreground">{e.event_type ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground">{e.actor ?? "-"}</td>
                     </tr>
                   ))}
                 </tbody>
