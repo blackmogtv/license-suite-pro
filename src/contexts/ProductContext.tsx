@@ -29,10 +29,17 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await callManageKeys<{ products?: Product[] } | Product[]>("list_products");
-      const list: Product[] = Array.isArray(data)
+      const data = await callManageKeys<{ products?: any[]; items?: any[] } | any[]>("list_products");
+      const raw: any[] = Array.isArray(data)
         ? data
-        : (data?.products ?? []);
+        : (data?.items ?? data?.products ?? []);
+      const list: Product[] = raw.map((p) => ({
+        id: p.id,
+        client_id: p.client_id,
+        name: p.display_name ?? p.name ?? p.client_id,
+        is_active: !!p.is_active,
+        created_at: p.created_at,
+      }));
       // Fallback: if backend returns nothing, surface the known product slugs as inactive placeholders.
       const final =
         list.length > 0
