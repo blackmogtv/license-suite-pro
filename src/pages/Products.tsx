@@ -20,7 +20,8 @@ export default function Products() {
     try {
       await callManageKeys("create_product", {
         client_id: newId,
-        name: newName || newId,
+        display_name: newName || newId,
+        description: "",
         is_active: true,
         actor: user?.email,
       });
@@ -36,14 +37,16 @@ export default function Products() {
     }
   };
 
-  const toggle = async (clientId: string, currentlyActive: boolean) => {
+  const toggle = async (p: { client_id: string; name?: string; is_active: boolean }) => {
     try {
       await callManageKeys("create_product", {
-        client_id: clientId,
-        is_active: !currentlyActive,
+        client_id: p.client_id,
+        display_name: p.name || p.client_id,
+        description: "",
+        is_active: !p.is_active,
         actor: user?.email,
       });
-      toast.success(`Product ${!currentlyActive ? "activated" : "deactivated"}`);
+      toast.success(`Product ${!p.is_active ? "activated" : "deactivated"}`);
       refresh();
     } catch (err) {
       toast.error("Failed", { description: (err as Error).message });
@@ -107,7 +110,7 @@ export default function Products() {
               )}
               <Button
                 variant="secondary"
-                onClick={() => toggle(p.client_id, p.is_active)}
+                onClick={() => toggle(p)}
                 className="w-full mt-4"
               >
                 {p.is_active ? "DEACTIVATE" : "ACTIVATE"}
