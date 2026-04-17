@@ -47,42 +47,52 @@ export default function Activity() {
     setLoading(true);
     setError(null);
     try {
-      // Try a global list_events first; fall back to per-product fanout.
-      let collected: ActivityRow[] = [];
-      try {
-        const data = await callManageKeys<any>("list_events", { limit: 100 });
-        const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.events ?? []);
-        collected = raw.map(normalizeKeyEvent);
-      } catch {
-        // Fallback: pull recent keys per product and synthesize "last activity" rows.
-        const perProduct = await Promise.all(
-          products.map(async (p) => {
-            try {
-              const data = await callManageKeys<any>("list_keys", {
-                client_id: p.client_id,
-                limit: 25,
-                offset: 0,
-              });
-              const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.keys ?? []);
-              return raw
-                .filter((k) => k.last_used_at || k.first_used_at || k.used_at)
-                .map((k) => ({
-                  id: `${p.client_id}:${k.license_key}`,
-                  created_at: k.last_used_at ?? k.first_used_at ?? k.used_at,
-                  event_type: "key_used",
-                  actor: k.user_label ?? k.used_by ?? null,
-                  license_key: k.license_key,
-                  client_id: p.client_id,
-                  hwid: k.hwid ?? null,
-                  details: { duration_days: k.duration_days, status: k.status },
-                }) as ActivityRow);
-            } catch {
-              return [];
+      // Fan out per product: backend requires client_id on every action.
+      const perProduct = await Promise.all(
+        products.map(async (p) => {
+          // 1) Try a per-product list_events if the backend supports it.
+          try {
+            const data = await callManageKeys<any>("list_events", {
+              client_id: p.client_id,
+              limit: 50,
+            });
+            const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.events ?? []);
+            if (raw.length > 0) {
+              return raw.map((e) => ({
+                ...normalizeKeyEvent(e),
+                client_id: e.client_id ?? p.client_id,
+              })) as ActivityRow[];
             }
-          }),
-        );
-        collected = perProduct.flat();
-      }
+          } catch {
+            // ignore and fall through to key-derived activity
+          }
+
+          // 2) Fallback: derive recent activity from keys' usage timestamps.
+          try {
+            const data = await callManageKeys<any>("list_keys", {
+              client_id: p.client_id,
+              limit: 50,
+              offset: 0,
+            });
+            const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.keys ?? []);
+            return raw
+              .filter((k) => k.last_used_at || k.first_used_at || k.used_at)
+              .map((k) => ({
+                id: `${p.client_id}:${k.license_key}`,
+                created_at: k.last_used_at ?? k.first_used_at ?? k.used_at,
+                event_type: "key_used",
+                actor: k.user_label ?? k.used_by ?? null,
+                license_key: k.license_key,
+                client_id: p.client_id,
+                hwid: k.hwid ?? null,
+                details: { duration_days: k.duration_days, status: k.status },
+              }) as ActivityRow);
+          } catch {
+            return [] as ActivityRow[];
+          }
+        }),
+      );
+      const collected: ActivityRow[] = perProduct.flat();
 
       collected.sort((a, b) => {
         const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
