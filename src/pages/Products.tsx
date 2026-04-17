@@ -20,7 +20,8 @@ export default function Products() {
     try {
       await callManageKeys("create_product", {
         client_id: newId,
-        name: newName || newId,
+        display_name: newName || newId,
+        description: "",
         is_active: true,
         actor: user?.email,
       });
