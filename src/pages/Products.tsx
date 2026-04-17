@@ -110,7 +110,7 @@ export default function Products() {
               )}
               <Button
                 variant="secondary"
-                onClick={() => toggle(p.client_id, p.is_active)}
+                onClick={() => toggle(p)}
                 className="w-full mt-4"
               >
                 {p.is_active ? "DEACTIVATE" : "ACTIVATE"}
