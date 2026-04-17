@@ -3,6 +3,8 @@ import { Modal, Button, Input, Label, Textarea } from "@/components/ui/primitive
 import { callManageKeys } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { DurationPicker } from "./DurationPicker";
+import { daysToDuration, durationToDays, type DurationUnit } from "@/lib/utils";
 
 export function CreateKeysModal({
   open,
@@ -17,7 +19,8 @@ export function CreateKeysModal({
 }) {
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
-  const [duration, setDuration] = useState<string>("30"); // empty = lifetime
+  const [unit, setUnit] = useState<DurationUnit>("days");
+  const [amount, setAmount] = useState<number>(30);
   const [createdBy, setCreatedBy] = useState(clientId);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +32,7 @@ export function CreateKeysModal({
       const payload: Record<string, unknown> = {
         client_id: clientId,
         quantity,
-        duration_days: duration === "" ? null : Number(duration),
+        duration_days: durationToDays(unit, amount),
         created_by: createdBy || clientId,
         note: note || undefined,
         actor: user?.email,
