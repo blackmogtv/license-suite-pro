@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 // Connected to existing Supabase project (abhomngvbwukliyqgxhh).
 // IMPORTANT: paste your project's anon/publishable key below.
-// Find it at: Supabase Dashboard → Project Settings → API → "anon public" key.
+// Find it at: Supabase Dashboard -> Project Settings -> API -> "anon public" key.
 // This is a public key and safe to commit.
 export const SUPABASE_URL = "https://abhomngvbwukliyqgxhh.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_hknmdY3DLK5is-1QH7TX1Q_fc7M-Z2c";
@@ -27,7 +27,8 @@ export type ManageKeysAction =
   | "reset_hwid"
   | "update_note"
   | "set_duration"
-  | "delete_key";
+  | "delete_key"
+  | "list_events";
 
 export async function callManageKeys<T = any>(
   action: ManageKeysAction,
