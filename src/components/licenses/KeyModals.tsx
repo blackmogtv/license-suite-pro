@@ -71,28 +71,25 @@ export function CreateKeysModal({
           <Label>SCOPE</Label>
           <Input value={clientId} disabled className="font-mono" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>QUANTITY</Label>
-            <Input
-              type="number"
-              min={1}
-              max={1000}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-            />
-          </div>
-          <div>
-            <Label>DURATION (DAYS)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="empty = lifetime"
-            />
-          </div>
+        <div>
+          <Label>QUANTITY</Label>
+          <Input
+            type="number"
+            min={1}
+            max={1000}
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+            className="w-32"
+          />
         </div>
+        <DurationPicker
+          unit={unit}
+          amount={amount}
+          onChange={(d) => {
+            setUnit(d.unit);
+            setAmount(d.amount);
+          }}
+        />
         <div>
           <Label>CREATED_BY</Label>
           <Input value={createdBy} onChange={(e) => setCreatedBy(e.target.value)} />
