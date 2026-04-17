@@ -177,13 +177,15 @@ export function ChangeDurationModal({
   onSaved: (days: number | null) => void;
 }) {
   const { user } = useAuth();
-  const [days, setDays] = useState<string>(initialDays == null ? "" : String(initialDays));
+  const initial = daysToDuration(initialDays ?? null);
+  const [unit, setUnit] = useState<DurationUnit>(initial.unit);
+  const [amount, setAmount] = useState<number>(initial.amount || 1);
   const [loading, setLoading] = useState(false);
 
   const save = async () => {
     setLoading(true);
     try {
-      const payload = days === "" ? null : Number(days);
+      const payload = durationToDays(unit, amount);
       await callManageKeys("set_duration", {
         client_id: clientId,
         license_key: licenseKey,
@@ -214,13 +216,13 @@ export function ChangeDurationModal({
         </>
       }
     >
-      <Label>DURATION (DAYS) — EMPTY = LIFETIME</Label>
-      <Input
-        type="number"
-        min={0}
-        value={days}
-        onChange={(e) => setDays(e.target.value)}
-        placeholder="lifetime"
+      <DurationPicker
+        unit={unit}
+        amount={amount}
+        onChange={(d) => {
+          setUnit(d.unit);
+          setAmount(d.amount);
+        }}
       />
     </Modal>
   );
