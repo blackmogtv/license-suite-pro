@@ -29,10 +29,10 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await callManageKeys<{ products?: Product[] } | Product[]>("list_products");
+      const data = await callManageKeys<{ products?: Product[]; items?: Product[] } | Product[]>("list_products");
       const list: Product[] = Array.isArray(data)
         ? data
-        : (data?.products ?? []);
+        : (data?.items ?? data?.products ?? []);
       // Fallback: if backend returns nothing, surface the known product slugs as inactive placeholders.
       const final =
         list.length > 0
