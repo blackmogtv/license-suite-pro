@@ -54,13 +54,15 @@ export default function Licenses() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callManageKeys<{ keys?: LicenseKey[] } | LicenseKey[]>("list_keys", {
+      const data = await callManageKeys<{ keys?: LicenseKey[]; items?: LicenseKey[]; total?: number } | LicenseKey[]>("list_keys", {
         client_id: selected,
         search: debouncedSearch,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       });
-      const list: LicenseKey[] = Array.isArray(data) ? data : (data?.keys ?? []);
+      const list: LicenseKey[] = Array.isArray(data)
+        ? data
+        : (data?.items ?? data?.keys ?? []);
       setKeys(list);
       setHasMore(list.length === PAGE_SIZE);
     } catch (err) {
