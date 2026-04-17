@@ -3,6 +3,8 @@ import { Modal, Button, Input, Label, Textarea } from "@/components/ui/primitive
 import { callManageKeys } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { DurationPicker } from "./DurationPicker";
+import { daysToDuration, durationToDays, type DurationUnit } from "@/lib/utils";
 
 export function CreateKeysModal({
   open,
@@ -17,7 +19,8 @@ export function CreateKeysModal({
 }) {
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
-  const [duration, setDuration] = useState<string>("30"); // empty = lifetime
+  const [unit, setUnit] = useState<DurationUnit>("days");
+  const [amount, setAmount] = useState<number>(30);
   const [createdBy, setCreatedBy] = useState(clientId);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +32,7 @@ export function CreateKeysModal({
       const payload: Record<string, unknown> = {
         client_id: clientId,
         quantity,
-        duration_days: duration === "" ? null : Number(duration),
+        duration_days: durationToDays(unit, amount),
         created_by: createdBy || clientId,
         note: note || undefined,
         actor: user?.email,
@@ -68,28 +71,25 @@ export function CreateKeysModal({
           <Label>SCOPE</Label>
           <Input value={clientId} disabled className="font-mono" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>QUANTITY</Label>
-            <Input
-              type="number"
-              min={1}
-              max={1000}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-            />
-          </div>
-          <div>
-            <Label>DURATION (DAYS)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="empty = lifetime"
-            />
-          </div>
+        <div>
+          <Label>QUANTITY</Label>
+          <Input
+            type="number"
+            min={1}
+            max={1000}
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+            className="w-32"
+          />
         </div>
+        <DurationPicker
+          unit={unit}
+          amount={amount}
+          onChange={(d) => {
+            setUnit(d.unit);
+            setAmount(d.amount);
+          }}
+        />
         <div>
           <Label>CREATED_BY</Label>
           <Input value={createdBy} onChange={(e) => setCreatedBy(e.target.value)} />
@@ -177,13 +177,15 @@ export function ChangeDurationModal({
   onSaved: (days: number | null) => void;
 }) {
   const { user } = useAuth();
-  const [days, setDays] = useState<string>(initialDays == null ? "" : String(initialDays));
+  const initial = daysToDuration(initialDays ?? null);
+  const [unit, setUnit] = useState<DurationUnit>(initial.unit);
+  const [amount, setAmount] = useState<number>(initial.amount || 1);
   const [loading, setLoading] = useState(false);
 
   const save = async () => {
     setLoading(true);
     try {
-      const payload = days === "" ? null : Number(days);
+      const payload = durationToDays(unit, amount);
       await callManageKeys("set_duration", {
         client_id: clientId,
         license_key: licenseKey,
@@ -214,13 +216,13 @@ export function ChangeDurationModal({
         </>
       }
     >
-      <Label>DURATION (DAYS) — EMPTY = LIFETIME</Label>
-      <Input
-        type="number"
-        min={0}
-        value={days}
-        onChange={(e) => setDays(e.target.value)}
-        placeholder="lifetime"
+      <DurationPicker
+        unit={unit}
+        amount={amount}
+        onChange={(d) => {
+          setUnit(d.unit);
+          setAmount(d.amount);
+        }}
       />
     </Modal>
   );
