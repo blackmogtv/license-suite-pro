@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/primitives";
 import { callManageKeys } from "@/lib/supabase";
-import type { LicenseKey, KeyEvent } from "@/lib/types";
+import { normalizeLicenseKey, normalizeKeyEvent, type LicenseKey, type KeyEvent } from "@/lib/types";
 import { StatusBadge, deriveStatus } from "./StatusBadge";
 import { formatDate, formatDuration } from "@/lib/utils";
 
@@ -32,9 +32,10 @@ export function KeyDetailsDrawer({
       license_key: licenseKey.license_key,
     })
       .then((res: any) => {
-        if (res?.key) setDetails(res.key);
-        else if (res?.license_key) setDetails(res);
-        if (Array.isArray(res?.events)) setEvents(res.events);
+        const k = res?.key ?? (res?.license_key ? res : null);
+        if (k) setDetails(normalizeLicenseKey(k));
+        const evs = res?.events ?? res?.history ?? [];
+        if (Array.isArray(evs)) setEvents(evs.map(normalizeKeyEvent));
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -60,9 +61,11 @@ export function KeyDetailsDrawer({
           <Field label="CLIENT_ID" value={k.client_id} mono />
           <Field label="CREATED" value={formatDate(k.created_at)} mono />
           <Field label="DURATION" value={formatDuration(k.duration_days)} />
-          <Field label="GENERATED_BY" value={k.generated_by ?? "—"} mono />
-          <Field label="USED_BY" value={k.used_by ?? "—"} mono />
-          <Field label="USED_ON" value={k.used_at ? formatDate(k.used_at) : "—"} mono />
+          <Field label="GENERATED_BY" value={k.generated_by ?? "-"} mono />
+          <Field label="USED_BY" value={k.used_by ?? "-"} mono />
+          <Field label="FIRST_USED" value={k.used_at ? formatDate(k.used_at) : "-"} mono />
+          <Field label="LAST_USED" value={k.last_used_at ? formatDate(k.last_used_at) : "-"} mono />
+          <Field label="LAST_VALIDATED" value={k.last_validation_at ? formatDate(k.last_validation_at) : "-"} mono />
           <Field label="EXPIRES_AT" value={k.expires_at ? formatDate(k.expires_at) : "LIFETIME"} mono />
           <div className="col-span-2 md:col-span-3">
             <Field label="HWID" value={k.hwid ?? "UNASSIGNED_NULL"} mono />
