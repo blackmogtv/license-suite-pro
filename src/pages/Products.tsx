@@ -37,12 +37,13 @@ export default function Products() {
     }
   };
 
-  const toggle = async (p: { client_id: string; name?: string; is_active: boolean }) => {
+  const toggle = async (p: { client_id: string; name?: string; description?: string; is_active: boolean }) => {
     try {
       await callManageKeys("create_product", {
         client_id: p.client_id,
         display_name: p.name || p.client_id,
-        description: "",
+        // Preserve existing description on toggle so we don't wipe it.
+        description: p.description ?? "",
         is_active: !p.is_active,
         actor: user?.email,
       });
