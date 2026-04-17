@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { useProducts } from "@/contexts/ProductContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { callManageKeys } from "@/lib/supabase";
-import type { LicenseKey } from "@/lib/types";
+import { normalizeLicenseKey, type LicenseKey } from "@/lib/types";
 import { LicenseCard } from "@/components/licenses/LicenseCard";
 import { Button, ConfirmModal, Input } from "@/components/ui/primitives";
 import { CreateKeysModal, EditNoteModal, ChangeDurationModal, BanKeyModal } from "@/components/licenses/KeyModals";
@@ -60,9 +60,10 @@ export default function Licenses() {
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       });
-      const list: LicenseKey[] = Array.isArray(data)
+      const raw: any[] = Array.isArray(data)
         ? data
         : (data?.items ?? data?.keys ?? []);
+      const list: LicenseKey[] = raw.map(normalizeLicenseKey);
       setKeys(list);
       setHasMore(list.length === PAGE_SIZE);
     } catch (err) {
@@ -161,7 +162,7 @@ export default function Licenses() {
               LICENSE_MANIFEST
             </h1>
             <p className="text-sm text-muted-foreground mt-1 font-mono">
-              {selected ? `Scope: ${selected}` : "No product selected"} ·{" "}
+              {selected ? `Scope: ${selected}` : "No product selected"} //{" "}
               {stats.total} loaded
             </p>
           </div>
@@ -290,9 +291,9 @@ export default function Licenses() {
                     <td className="p-3 text-muted-foreground">
                       {k.duration_days == null ? "LIFETIME" : `${k.duration_days}d`}
                     </td>
-                    <td className="p-3 text-muted-foreground">{k.used_by ?? "—"}</td>
-                    <td className="p-3 text-muted-foreground truncate max-w-[160px]">{k.hwid ?? "—"}</td>
-                    <td className="p-3 text-muted-foreground">{k.created_at?.slice(0, 10) ?? "—"}</td>
+                    <td className="p-3 text-muted-foreground">{k.used_by ?? "-"}</td>
+                    <td className="p-3 text-muted-foreground truncate max-w-[160px]">{k.hwid ?? "-"}</td>
+                    <td className="p-3 text-muted-foreground">{k.created_at?.slice(0, 10) ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
