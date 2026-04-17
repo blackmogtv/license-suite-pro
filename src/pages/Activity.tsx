@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Activity as ActivityIcon, RefreshCw } from "lucide-react";
 import { callManageKeys } from "@/lib/supabase";
 import { useProducts } from "@/contexts/ProductContext";
-import { normalizeKeyEvent, type KeyEvent } from "@/lib/types";
+import { type KeyEvent } from "@/lib/types";
 import { Button } from "@/components/ui/primitives";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
