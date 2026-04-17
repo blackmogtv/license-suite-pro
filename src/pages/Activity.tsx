@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Activity as ActivityIcon, RefreshCw } from "lucide-react";
 import { callManageKeys } from "@/lib/supabase";
 import { useProducts } from "@/contexts/ProductContext";
-import { normalizeKeyEvent, type KeyEvent } from "@/lib/types";
+import { type KeyEvent } from "@/lib/types";
 import { Button } from "@/components/ui/primitives";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -47,27 +47,10 @@ export default function Activity() {
     setLoading(true);
     setError(null);
     try {
-      // Fan out per product: backend requires client_id on every action.
+      // Backend has no global events action; derive recent activity from
+      // each product's keys (last_used_at / first_used_at timestamps).
       const perProduct = await Promise.all(
         products.map(async (p) => {
-          // 1) Try a per-product list_events if the backend supports it.
-          try {
-            const data = await callManageKeys<any>("list_events", {
-              client_id: p.client_id,
-              limit: 50,
-            });
-            const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.events ?? []);
-            if (raw.length > 0) {
-              return raw.map((e) => ({
-                ...normalizeKeyEvent(e),
-                client_id: e.client_id ?? p.client_id,
-              })) as ActivityRow[];
-            }
-          } catch {
-            // ignore and fall through to key-derived activity
-          }
-
-          // 2) Fallback: derive recent activity from keys' usage timestamps.
           try {
             const data = await callManageKeys<any>("list_keys", {
               client_id: p.client_id,
