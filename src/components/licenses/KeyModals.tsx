@@ -4,7 +4,12 @@ import { callManageKeys } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { DurationPicker } from "./DurationPicker";
-import { daysToDuration, durationToDays, type DurationUnit } from "@/lib/utils";
+import { daysToDuration, type DurationUnit } from "@/lib/utils";
+
+function buildDurationPayload(unit: DurationUnit, amount: number) {
+  if (unit === "lifetime") return { duration_unit: "lifetime", duration_amount: null };
+  return { duration_unit: unit, duration_amount: amount };
+}
 
 export function CreateKeysModal({
   open,
@@ -32,7 +37,7 @@ export function CreateKeysModal({
       const payload: Record<string, unknown> = {
         client_id: clientId,
         quantity,
-        duration_days: durationToDays(unit, amount),
+        ...buildDurationPayload(unit, amount),
         created_by: createdBy || clientId,
         note: note || undefined,
         actor: user?.email,
@@ -185,15 +190,15 @@ export function ChangeDurationModal({
   const save = async () => {
     setLoading(true);
     try {
-      const payload = durationToDays(unit, amount);
+      const dur = buildDurationPayload(unit, amount);
       await callManageKeys("set_duration", {
         client_id: clientId,
         license_key: licenseKey,
-        duration_days: payload,
+        ...dur,
         actor: user?.email,
       });
       toast.success("Duration updated");
-      onSaved(payload);
+      onSaved(dur.duration_amount as number | null);
       onClose();
     } catch (err) {
       toast.error("Failed", { description: (err as Error).message });

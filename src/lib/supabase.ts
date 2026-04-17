@@ -27,7 +27,8 @@ export type ManageKeysAction =
   | "reset_hwid"
   | "update_note"
   | "set_duration"
-  | "delete_key";
+  | "delete_key"
+  | "list_events";
 
 export async function callManageKeys<T = any>(
   action: ManageKeysAction,
