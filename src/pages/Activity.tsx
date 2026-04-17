@@ -44,6 +44,46 @@ function eventAccent(t?: string) {
   return "text-foreground";
 }
 
+async function fetchProductEvents(client_id: string): Promise<ActivityRow[]> {
+  // Try list_events first; if backend doesn't support it, derive from list_keys.
+  try {
+    const data = await callManageKeys<any>("list_events", {
+      client_id,
+      limit: 100,
+      offset: 0,
+    });
+    const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.events ?? []);
+    if (raw.length > 0 || data?.status === "ok") {
+      return raw.map((e) => normalizeKeyEvent({ ...e, client_id: e.client_id ?? client_id }) as ActivityRow);
+    }
+  } catch {
+    // fall through to derived
+  }
+
+  try {
+    const data = await callManageKeys<any>("list_keys", {
+      client_id,
+      limit: 100,
+      offset: 0,
+    });
+    const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.keys ?? []);
+    return raw
+      .filter((k) => k.last_validation_at || k.last_used_at || k.first_used_at || k.used_at)
+      .map((k) => ({
+        id: `${client_id}:${k.license_key}`,
+        created_at: k.last_validation_at ?? k.last_used_at ?? k.first_used_at ?? k.used_at,
+        event_type: k.banned ? "banned" : "valid_existing_binding",
+        actor: k.user_label ?? k.used_by ?? null,
+        license_key: k.license_key,
+        client_id,
+        hwid: k.hwid ?? null,
+        details: { status: k.status },
+      }) as ActivityRow);
+  } catch {
+    return [];
+  }
+}
+
 export default function Activity() {
   const { products } = useProducts();
   const [rows, setRows] = useState<ActivityRow[]>([]);
@@ -61,22 +101,8 @@ export default function Activity() {
     setLoading(true);
     setError(null);
     try {
-      const perProduct = await Promise.all(
-        products.map(async (p) => {
-          try {
-            const data = await callManageKeys<any>("list_events", {
-              client_id: p.client_id,
-              limit: 100,
-              offset: 0,
-            });
-            const raw: any[] = Array.isArray(data) ? data : (data?.items ?? data?.events ?? []);
-            return raw.map((e) => normalizeKeyEvent({ ...e, client_id: e.client_id ?? p.client_id }) as ActivityRow);
-          } catch {
-            return [] as ActivityRow[];
-          }
-        }),
-      );
-      const collected: ActivityRow[] = perProduct.flat();
+      const perProduct = await Promise.all(products.map((p) => fetchProductEvents(p.client_id)));
+      const collected = perProduct.flat();
 
       collected.sort((a, b) => {
         const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -117,20 +143,13 @@ export default function Activity() {
     return { valid, invalid, all: rows.length };
   }, [rows]);
 
-  const FilterBtn = ({ value, label, count }: { value: Filter; label: string; count: number }) => (
-    <button
-      type="button"
-      onClick={() => setFilter(value)}
-      className={cn(
-        "px-3 py-1 rounded-sm border text-[10px] font-mono font-bold tracking-wider transition-colors",
-        filter === value
-          ? "bg-primary text-primary-foreground border-primary"
-          : "bg-surface text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40",
-      )}
-    >
-      {label} ({count})
-    </button>
-  );
+  const filterBtnClass = (active: boolean) =>
+    cn(
+      "px-3 py-1 rounded-sm border text-[10px] font-mono font-bold tracking-wider transition-colors",
+      active
+        ? "bg-primary text-primary-foreground border-primary"
+        : "bg-surface text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40",
+    );
 
   return (
     <>
@@ -153,9 +172,15 @@ export default function Activity() {
             </p>
           </div>
           <div className="flex gap-1">
-            <FilterBtn value="all" label="ALL" count={counts.all} />
-            <FilterBtn value="valid" label="VALID" count={counts.valid} />
-            <FilterBtn value="invalid" label="INVALID" count={counts.invalid} />
+            <button type="button" onClick={() => setFilter("all")} className={filterBtnClass(filter === "all")}>
+              ALL ({counts.all})
+            </button>
+            <button type="button" onClick={() => setFilter("valid")} className={filterBtnClass(filter === "valid")}>
+              VALID ({counts.valid})
+            </button>
+            <button type="button" onClick={() => setFilter("invalid")} className={filterBtnClass(filter === "invalid")}>
+              INVALID ({counts.invalid})
+            </button>
           </div>
         </div>
 
